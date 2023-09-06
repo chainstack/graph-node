@@ -1,7 +1,7 @@
-use crate::data::value::Word;
-use crate::prelude::{impl_slog_value, Value};
+use crate::components::subgraph::Entity;
+use crate::prelude::impl_slog_value;
 use stable_hash_legacy::StableHasher;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::fmt;
 use strum_macros::IntoStaticStr;
 
@@ -13,7 +13,7 @@ pub enum ProofOfIndexingEvent<'a> {
     SetEntity {
         entity_type: &'a str,
         id: &'a str,
-        data: &'a HashMap<Word, Value>,
+        data: &'a Entity,
     },
     /// For when a deterministic error has happened.
     ///
@@ -77,7 +77,8 @@ impl stable_hash_legacy::StableHash for ProofOfIndexingEvent<'_> {
             } => {
                 entity_type.stable_hash(sequence_number.next_child(), state);
                 id.stable_hash(sequence_number.next_child(), state);
-                data.stable_hash(sequence_number.next_child(), state);
+                data.sorted_ref()
+                    .stable_hash(sequence_number.next_child(), state);
             }
             DeterministicError { redacted_events } => {
                 redacted_events.stable_hash(sequence_number.next_child(), state)
@@ -103,7 +104,7 @@ impl stable_hash::StableHash for ProofOfIndexingEvent<'_> {
             } => {
                 entity_type.stable_hash(field_address.child(0), state);
                 id.stable_hash(field_address.child(1), state);
-                data.stable_hash(field_address.child(2), state);
+                data.sorted_ref().stable_hash(field_address.child(2), state);
                 2
             }
             Self::DeterministicError { redacted_events } => {
@@ -135,7 +136,14 @@ impl fmt::Debug for ProofOfIndexingEvent<'_> {
             } => {
                 builder.field("entity_type", entity_type);
                 builder.field("id", id);
-                builder.field("data", &data.iter().collect::<BTreeMap<_, _>>());
+                builder.field(
+                    "data",
+                    &data
+                        .sorted_ref()
+                        .iter()
+                        .cloned()
+                        .collect::<BTreeMap<_, _>>(),
+                );
             }
             Self::DeterministicError { redacted_events } => {
                 builder.field("redacted_events", redacted_events);

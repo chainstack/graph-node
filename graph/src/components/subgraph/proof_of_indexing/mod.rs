@@ -35,7 +35,11 @@ pub type SharedProofOfIndexing = Option<Arc<AtomicRefCell<ProofOfIndexing>>>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::{BlockPtr, DeploymentHash, Value};
+    use crate::{
+        entity,
+        prelude::{BlockPtr, DeploymentHash, Value},
+        schema::InputSchema,
+    };
     use maplit::hashmap;
     use online::ProofOfIndexingFinisher;
     use reference::*;
@@ -130,13 +134,21 @@ mod tests {
     /// in each case the reference and online versions match
     #[test]
     fn online_vs_reference() {
-        let data = hashmap! {
-            "val".into() => Value::Int(1)
+        let id = DeploymentHash::new("Qm123").unwrap();
+
+        let data_schema = InputSchema::parse("type User @entity { val: Int }", id.clone()).unwrap();
+        let data = entity! { data_schema =>
+            val: 1
         };
-        let data_empty = hashmap! {};
-        let data2 = hashmap! {
-            "key".into() => Value::String("s".to_owned()),
-            "null".into() => Value::Null,
+
+        let empty_schema = InputSchema::parse("type User @entity { }", id.clone()).unwrap();
+        let data_empty = entity! { empty_schema =>  };
+
+        let data2_schema =
+            InputSchema::parse("type User @entity { key: String!, null: String }", id).unwrap();
+        let data2 = entity! { data2_schema =>
+            key: "s",
+            null: Value::Null,
         };
 
         let mut cases = vec![

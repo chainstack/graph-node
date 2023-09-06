@@ -2,9 +2,10 @@ use crate::{data_source::*, EntityChanges, TriggerData, TriggerFilter, TriggersA
 use anyhow::Error;
 use graph::blockchain::client::ChainClient;
 use graph::blockchain::{BlockIngestor, EmptyNodeCapabilities, NoopRuntimeAdapter};
-use graph::components::store::DeploymentCursorTracker;
+use graph::components::store::{DeploymentCursorTracker, EntityKey};
+use graph::data::value::Word;
 use graph::firehose::FirehoseEndpoints;
-use graph::prelude::{BlockHash, LoggerFactory, MetricsRegistry};
+use graph::prelude::{BlockHash, Entity, LoggerFactory, MetricsRegistry, Value};
 use graph::{
     blockchain::{
         self,
@@ -16,13 +17,22 @@ use graph::{
     prelude::{async_trait, BlockNumber, ChainStore},
     slog::Logger,
 };
+use std::collections::HashMap;
 use std::sync::Arc;
+
+#[derive(Debug, Clone)]
+pub enum ParsedChanges {
+    Unset,
+    Delete(EntityKey),
+    Upsert { key: EntityKey, entity: Entity },
+}
 
 #[derive(Default, Debug, Clone)]
 pub struct Block {
     pub hash: BlockHash,
     pub number: BlockNumber,
     pub changes: EntityChanges,
+    pub parsed_changes: Vec<ParsedChanges>,
 }
 
 impl blockchain::Block for Block {
